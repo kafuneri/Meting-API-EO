@@ -1,0 +1,228 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meting API - Tencent Cloud EdgeOne Pages</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css">
+  <style>
+    :root {
+      --primary: #0066ff;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem 1rem;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 860px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.825rem;
+      font-weight: 600;
+      background: #e0f2fe;
+      color: #0284c7;
+      margin-bottom: 0.75rem;
+    }
+    h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 2rem;
+      color: var(--text);
+    }
+    p.subtitle {
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+      margin-bottom: 1.5rem;
+    }
+    h2 {
+      font-size: 1.25rem;
+      margin-top: 0;
+      margin-bottom: 1rem;
+      color: var(--text);
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .links {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 0.75rem;
+      margin-top: 0.5rem;
+    }
+    .btn {
+      display: inline-block;
+      padding: 0.5rem 1rem;
+      background: #f1f5f9;
+      color: #334155;
+      text-decoration: none;
+      border-radius: 6px;
+      font-size: 0.875rem;
+      transition: all 0.2s;
+      border: 1px solid var(--border);
+    }
+    .btn:hover {
+      background: var(--primary);
+      color: #ffffff;
+      border-color: var(--primary);
+    }
+    code {
+      background: #f1f5f9;
+      padding: 0.2rem 0.4rem;
+      border-radius: 4px;
+      font-size: 0.875rem;
+      color: #d946ef;
+    }
+    pre {
+      background: #0f172a;
+      color: #f8fafc;
+      padding: 1rem;
+      border-radius: 8px;
+      overflow-x: auto;
+      font-size: 0.875rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 0.5rem;
+      font-size: 0.875rem;
+    }
+    th, td {
+      text-align: left;
+      padding: 0.6rem;
+      border-bottom: 1px solid var(--border);
+    }
+    th {
+      color: var(--text-muted);
+    }
+    #player-container {
+      margin-top: 1rem;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="badge">🚀 Tencent Cloud EdgeOne Pages Powered</span>
+      <h1>Meting API</h1>
+      <p class="subtitle">基于 EdgeOne Cloud Functions 的多平台音乐 API 代理服务</p>
+    </div>
+
+    <!-- 播放器体验 -->
+    <div class="card">
+      <h2>🎵 在线试听体验 (APlayer)</h2>
+      <div id="player-container">加载播放器中...</div>
+    </div>
+
+    <!-- 快速测试链接 -->
+    <div class="card">
+      <h2>⚡ 接口快速测试</h2>
+      <p style="color: var(--text-muted); font-size: 0.875rem;">点击下方链接直接测试各平台与接口类型的解析结果：</p>
+      <div class="links">
+        <a class="btn" href="/api?server=netease&type=playlist&id=19723756" target="_blank">网易云歌单解析</a>
+        <a class="btn" href="/api?server=netease&type=song&id=35847388" target="_blank">网易云单曲详情</a>
+        <a class="btn" href="/api?server=netease&type=lrc&id=35847388" target="_blank">网易云双语歌词</a>
+        <a class="btn" href="/api?server=tencent&type=playlist&id=7326220405" target="_blank">QQ音乐歌单解析</a>
+        <a class="btn" href="/api?server=kugou&type=search&id=周杰伦" target="_blank">酷狗搜索 (周杰伦)</a>
+        <a class="btn" href="/health" target="_blank">健康检查 (/health)</a>
+      </div>
+    </div>
+
+    <!-- 使用方法 -->
+    <div class="card">
+      <h2>📖 MetingJS 配置说明</h2>
+      <p style="font-size: 0.875rem;">在前端网页引入 APlayer 与 MetingJS 之前，全局声明你的 EdgeOne API 地址：</p>
+      <pre><code>&lt;!-- 1. 声明自定义 Meting API 地址 --&gt;
+&lt;script&gt;
+  var meting_api = window.location.origin + '/api?server=:server&type=:type&id=:id&auth=:auth&r=:r';
+&lt;/script&gt;
+
+&lt;!-- 2. 引入 APlayer 和 MetingJS --&gt;
+&lt;link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css"&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"&gt;&lt;/script&gt;
+&lt;script src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"&gt;&lt;/script&gt;
+
+&lt;!-- 3. 页面中使用 --&gt;
+&lt;meting-js server="netease" type="playlist" id="7326220405"&gt;&lt;/meting-js&gt;</code></pre>
+    </div>
+
+    <!-- 支持参数表 -->
+    <div class="card">
+      <h2>📋 支持参数与平台</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>参数名</th>
+            <th>默认值</th>
+            <th>可选值</th>
+            <th>说明</th>
+          </tr>
+        </thead>
+        <tbody>
+          <tr>
+            <td><code>server</code></td>
+            <td><code>netease</code></td>
+            <td><code>netease</code>, <code>tencent</code>, <code>kugou</code>, <code>baidu</code>, <code>kuwo</code></td>
+            <td>音乐提供商</td>
+          </tr>
+          <tr>
+            <td><code>type</code></td>
+            <td><code>playlist</code></td>
+            <td><code>song</code>, <code>album</code>, <code>search</code>, <code>artist</code>, <code>playlist</code>, <code>lrc</code>, <code>url</code>, <code>pic</code></td>
+            <td>请求数据类型</td>
+          </tr>
+          <tr>
+            <td><code>id</code></td>
+            <td>-</td>
+            <td>字符串 / 数字</td>
+            <td>歌曲 ID、歌单 ID 或搜索关键词</td>
+          </tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', async () => {
+      const container = document.getElementById('player-container');
+      try {
+        const res = await fetch('/api?server=netease&type=playlist&id=19723756');
+        const list = await res.json();
+        container.innerHTML = '';
+        new APlayer({
+          container: container,
+          audio: list,
+          lrcType: 3,
+          autoplay: false,
+          theme: '#0066ff'
+        });
+      } catch (err) {
+        container.innerHTML = '<p style="color: #ef4444; font-size: 0.875rem;">加载播放列表失败，请检查网络或控制台输出。</p>';
+      }
+    });
+  </script>
+</body>
+</html>
