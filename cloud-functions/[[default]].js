@@ -45,7 +45,13 @@ function getBaseUrl (req) {
   }
   const isInternal = (h) => !h || h.includes('.qcloudteo.com') || h.includes('.tencentscf.com')
 
-  // 1. 优先提取反向代理 / CDN 传递的公网 Host
+  // 1. EdgeOne Pages 官方加速域名专属请求头（包含自定义域名如 meting-api.kafuchino.top 与预设域名）
+  const eoHost = req.headers['eo-pages-host']
+  if (eoHost && !isInternal(eoHost)) {
+    return `https://${eoHost}`
+  }
+
+  // 2. 检查反向代理 / CDN 传递的公网 Host
   const forwardedHost = req.headers['x-forwarded-host'] || 
                         req.headers['x-real-host'] || 
                         req.headers['x-original-host'] || ''
@@ -54,22 +60,11 @@ function getBaseUrl (req) {
     return `${proto}://${forwardedHost}`
   }
 
-  // 2. 检查普通 Host（排除 SCF 内部集群域名）
+  // 3. 检查普通 Host（排除 SCF 内部集群域名）
   const host = req.get('host')
   if (host && !isInternal(host)) {
     const proto = req.headers['x-forwarded-proto'] || (host.includes('localhost') ? 'http' : 'https')
     return `${proto}://${host}`
-  }
-
-  // 3. 从 Referer / Origin 获取客户端访问的公网地址
-  const referer = req.headers.referer || req.headers.origin
-  if (referer) {
-    try {
-      const u = new URL(referer)
-      if (!isInternal(u.host)) {
-        return `${u.protocol}//${u.host}`
-      }
-    } catch {}
   }
 
   // 4. 兜底返回相对路径
@@ -284,13 +279,7 @@ async function handleMetingRequest (req, res) {
 
 // 路由挂载
 app.get('/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    host: req.get('host'),
-    headers: req.headers,
-    provider: 'Tencent Cloud EdgeOne Pages Cloud Functions',
-    timestamp: Date.now()
-  })
+  res.json({ status: 'ok', provider: 'Tencent Cloud EdgeOne Pages Cloud Functions', timestamp: Date.now() })
 })
 
 // 兼容所有路径（/api, /api/*, / 等），由 handleMetingRequest 处理
