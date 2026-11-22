@@ -1,0 +1,16 @@
+{
+  "rootDirectory": "./",
+  "installCommand": "npm install",
+  "buildCommand": "",
+  "outputDirectory": "public",
+  "nodeVersion": "20",
+  "cloudFunctions": {
+    "maxDuration": 15
+  },
+  "routes": [
+    { "src": "/api", "dest": "cloud-functions/[[default]].js" },
+    { "src": "/api/(.*)", "dest": "cloud-functions/[[default]].js" },
+    { "src": "/health", "dest": "cloud-functions/[[default]].js" },
+    { "src": "/(.*)", "dest": "/$1" }
+  ]
+}
