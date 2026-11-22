@@ -171,22 +171,30 @@ export const kuwoProvider = {
 
   async _getSongInfo (id) {
     const urls = [
-      `http://kuwo.cn/newh5/singles/songinfoandlrc?musicId=${id}`,
-      `https://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${id}`
+      `https://m.kuwo.cn/newh5/singles/songinfoandlrc?musicId=${id}`,
+      `http://kuwo.cn/newh5/singles/songinfoandlrc?musicId=${id}`
     ]
     for (const url of urls) {
-      try {
-        const res = await fetch(url, {
-          headers: {
-            'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
-            'Referer': 'http://kuwo.cn/'
+      let cookie = ''
+      for (let attempt = 0; attempt < 2; attempt++) {
+        try {
+          const res = await fetch(url, {
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
+              'Referer': 'https://m.kuwo.cn/',
+              ...(cookie ? { Cookie: cookie } : {})
+            }
+          })
+          const setCookies = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get('set-cookie')]
+          if (setCookies && setCookies.length > 0) {
+            cookie = setCookies.filter(Boolean).map(c => c.split(';')[0]).join('; ')
           }
-        })
-        const json = await res.json()
-        if (json?.status === 200 && json?.data) {
-          return json.data
-        }
-      } catch {}
+          const json = await res.json()
+          if (json?.status === 200 && json?.data) {
+            return json.data
+          }
+        } catch {}
+      }
     }
     return {}
   }

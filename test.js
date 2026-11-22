@@ -51,20 +51,20 @@ async function runTests () {
   })
 
   // 5. 网易云单曲直链 (302 Redirect)
-  await testCase('NetEase Song URL Redirect 302 (/api?server=netease&type=url&id=35847388)', '/api?server=netease&type=url&id=35847388', async res => {
+  await testCase('NetEase Song URL Redirect 302 (/api?server=netease&type=url&id=40915694)', '/api?server=netease&type=url&id=40915694', async res => {
     const loc = res.headers.get('location')
     return (res.status === 302 || res.status === 301) && loc && loc.startsWith('https://')
   })
 
   // 6. 网易云歌词解析 (lrc)
-  await testCase('NetEase Lyric Parsing (/api?server=netease&type=lrc&id=35847388)', '/api?server=netease&type=lrc&id=35847388', async res => {
+  await testCase('NetEase Lyric Parsing (/api?server=netease&type=lrc&id=40915694)', '/api?server=netease&type=lrc&id=40915694', async res => {
     if (res.status !== 200) return false
     const text = await res.text()
     return text.includes('[') && text.includes(']')
   })
 
   // 7. 网易云封面图直链 (302 Redirect)
-  await testCase('NetEase Pic Redirect 302 (/api?server=netease&type=pic&id=35847388)', '/api?server=netease&type=pic&id=35847388', async res => {
+  await testCase('NetEase Pic Redirect 302 (/api?server=netease&type=pic&id=40915694)', '/api?server=netease&type=pic&id=40915694', async res => {
     const loc = res.headers.get('location')
     return (res.status === 302 || res.status === 301) && loc && loc.length > 0
   })
