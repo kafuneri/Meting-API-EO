@@ -91,7 +91,7 @@ edgeone pages deploy
 | 变量名 | 说明 | 示例 |
 | :--- | :--- | :--- |
 | `METING_URL` | 自定义绑定的外部访问域名（若不填自动从请求 Host 获取） | `https://music.example.com` |
-| `CORS_ORIGIN` | 允许跨域请求的域名白名单。默认 `*` 允许所有源；支持配置单个源、逗号分隔多源或泛域名（如 `*.a.com`、`https://*.a.com`） | `*` / `https://a.com,https://b.com,*.kafuchino.top` |
+| `CORS_ORIGIN` | 允许跨域请求的域名白名单。默认 `*` 允许所有源；支持配置单个源、逗号分隔多源或泛域名 | `*` / `https://a.com,https://b.com,*.example.com` |
 | `METING_TOKEN` | HMAC-SHA1 签名密钥，配置后开启接口鉴权保护 | `my_secret_token` |
 | `FILTER_VIP` | 无 Cookie 状态下是否屏蔽 VIP 试听音轨（默认 `true` 开启屏蔽；设为 `false` 取消屏蔽） | `true` / `false` |
 | `METING_COOKIE_NETEASE` | 网易云音乐 VIP 账号 Cookie | `MUSIC_U=xxxx...` |
