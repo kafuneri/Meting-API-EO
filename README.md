@@ -7,8 +7,7 @@
 ## 特性亮点
 
 - ⚡ **国内边缘节点极速访问**：依托腾讯云 Anycast 全球及大陆边缘节点，延迟低至 20ms~50ms，彻底解决 Vercel / Cloudflare 等海外节点访问缓慢或被墙的问题。
-- 🎵 **五大主流平台全支持**：网易云 (`netease`)、QQ 音乐 (`tencent`)、酷狗 (`kugou`)、酷我 (`kuwo`)、百度 (`baidu`)。
-- 🛡️ **无海外版权限制困扰**：在中国大陆节点直接请求国内各大音乐平台 API，无需担心海外 IP 被限流或拦截。
+- 🎵 **四大主流平台全支持**：网易云 (`netease`)、QQ 音乐 (`tencent`)、酷狗 (`kugou`)、酷我 (`kuwo`)。
 - 💾 **内置 LRU 内存缓存**：实例温启动期间复用数据缓存，有效减轻上游请求压力。
 - 🔐 **可选 HMAC-SHA1 鉴权**：支持配置 `METING_TOKEN` 签名保护，防止接口被恶意盗刷。
 - 📝 **双语歌词智能对齐**：自动将原文歌词与翻译歌词按时间戳合并为 `原文 (翻译)` 格式。
@@ -78,7 +77,7 @@ edgeone pages deploy
 
 | 参数名 | 默认值 | 可选值 | 说明 |
 | :--- | :--- | :--- | :--- |
-| `server` | `netease` | `netease`, `tencent`, `kugou`, `baidu`, `kuwo` | 音乐平台代码 |
+| `server` | `netease` | `netease`, `tencent`, `kugou`, `kuwo` | 音乐平台代码 |
 | `type` | `playlist` | `song`, `album`, `search`, `artist`, `playlist`, `lrc`, `url`, `pic` | 请求数据类型 |
 | `id` | - | 字符串 / 数字 | 歌曲 ID、歌单 ID 或搜索关键词 |
 | `auth` / `token` | - | 字符串 | HMAC 签名 token（未配置 `METING_TOKEN` 环境变量时免鉴权） |
@@ -92,6 +91,7 @@ edgeone pages deploy
 | 变量名 | 说明 | 示例 |
 | :--- | :--- | :--- |
 | `METING_URL` | 自定义绑定的外部访问域名（若不填自动从请求 Host 获取） | `https://music.example.com` |
+| `CORS_ORIGIN` | 允许跨域请求的域名白名单。默认 `*` 允许所有源；支持配置单个源、逗号分隔多源或泛域名（如 `*.a.com`、`https://*.a.com`） | `*` / `https://a.com,https://b.com,*.kafuchino.top` |
 | `METING_TOKEN` | HMAC-SHA1 签名密钥，配置后开启接口鉴权保护 | `my_secret_token` |
 | `FILTER_VIP` | 无 Cookie 状态下是否屏蔽 VIP 试听音轨（默认 `true` 开启屏蔽；设为 `false` 取消屏蔽） | `true` / `false` |
 | `METING_COOKIE_NETEASE` | 网易云音乐 VIP 账号 Cookie | `MUSIC_U=xxxx...` |

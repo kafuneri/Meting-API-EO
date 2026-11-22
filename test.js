@@ -1,4 +1,5 @@
 import app from './cloud-functions/[[default]].js'
+import { parseCorsPatterns, isOriginAllowed } from './cloud-functions/utils/cors.js'
 import http from 'node:http'
 
 const server = http.createServer(app)
@@ -10,9 +11,9 @@ async function runTests () {
   let passCount = 0
   let failCount = 0
 
-  async function testCase (name, path, validate) {
+  async function testCase (name, path, validate, fetchOptions = {}) {
     try {
-      const res = await fetch(`http://localhost:3333${path}`, { redirect: 'manual' })
+      const res = await fetch(`http://localhost:3333${path}`, { redirect: 'manual', ...fetchOptions })
       const ok = await validate(res)
       if (ok) {
         console.log(`[PASS] ${name}`)
@@ -127,6 +128,84 @@ async function runTests () {
   await testCase('Baidu Removed Server Rejection (/api?server=baidu&type=search&id=周杰伦)', '/api?server=baidu&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
     return res.status === 400
   })
+
+  // 15. CORS 默认通配符模式 (*) 测试
+  await testCase('CORS Default Wildcard (*) with Origin header', '/health', async res => {
+    const acao = res.headers.get('access-control-allow-origin')
+    return res.status === 200 && (acao === '*' || acao === 'https://foo.com')
+  }, { headers: { Origin: 'https://foo.com' } })
+
+  // 16. CORS OPTIONS 预检请求测试
+  await testCase('CORS OPTIONS Preflight Request', '/api', async res => {
+    const acao = res.headers.get('access-control-allow-origin')
+    const methods = res.headers.get('access-control-allow-methods')
+    return (res.status === 200 || res.status === 204) && !!acao && !!methods
+  }, { method: 'OPTIONS', headers: { Origin: 'https://foo.com', 'Access-Control-Request-Method': 'GET' } })
+
+  // 17. CORS 规则解析与泛域名算法单元测试
+  console.log('--- Testing CORS Origin Pattern Matching ---')
+  const corsUnitTests = [
+    { env: '*', origin: 'https://any.com', expect: true },
+    { env: 'https://a.com,https://b.com', origin: 'https://a.com', expect: true },
+    { env: 'https://a.com,https://b.com', origin: 'https://b.com', expect: true },
+    { env: 'https://a.com,https://b.com', origin: 'https://c.com', expect: false },
+    { env: '*.a.com', origin: 'https://a.com', expect: true },
+    { env: '*.a.com', origin: 'https://sub.a.com', expect: true },
+    { env: '*.a.com', origin: 'https://music.blog.a.com', expect: true },
+    { env: '*.a.com', origin: 'https://not-a.com', expect: false },
+    { env: '*.a.com', origin: 'https://fakea.com', expect: false },
+    { env: 'https://*.a.com', origin: 'https://sub.a.com', expect: true },
+    { env: 'https://*.a.com', origin: 'http://sub.a.com', expect: false }
+  ]
+  let corsUnitPass = true
+  for (const t of corsUnitTests) {
+    const matched = isOriginAllowed(t.origin, parseCorsPatterns(t.env))
+    if (matched !== t.expect) {
+      console.error(`[FAIL] CORS Pattern: env=${t.env}, origin=${t.origin}, expected=${t.expect}, actual=${matched}`)
+      corsUnitPass = false
+    }
+  }
+  if (corsUnitPass) {
+    console.log('[PASS] CORS Pattern & Wildcard Matching Unit Tests (11 test assertions passed)')
+    passCount++
+  } else {
+    failCount++
+  }
+
+  // 18. CORS 动态环境变量集成测试（自定义单源 + 泛域名白名单）
+  const originalCors = process.env.CORS_ORIGIN
+  try {
+    process.env.CORS_ORIGIN = 'https://kafuchino.top, *.example.com'
+
+    // 允许的单源
+    await testCase('CORS Env Custom Single Origin Allowed (https://kafuchino.top)', '/health', async res => {
+      const acao = res.headers.get('access-control-allow-origin')
+      return acao === 'https://kafuchino.top'
+    }, { headers: { Origin: 'https://kafuchino.top' } })
+
+    // 允许的泛域名二级域名
+    await testCase('CORS Env Wildcard Subdomain Allowed (https://sub.example.com)', '/health', async res => {
+      const acao = res.headers.get('access-control-allow-origin')
+      return acao === 'https://sub.example.com'
+    }, { headers: { Origin: 'https://sub.example.com' } })
+
+    // 未授权的跨域域名（不返回 ACAO 响应头）
+    await testCase('CORS Env Disallowed Origin Blocked (https://evil.com)', '/health', async res => {
+      const acao = res.headers.get('access-control-allow-origin')
+      return acao === null
+    }, { headers: { Origin: 'https://evil.com' } })
+
+    // 无 Origin 的非跨域请求正常放行
+    await testCase('CORS Non-Origin Request Normal Access', '/health', async res => {
+      return res.status === 200
+    })
+  } finally {
+    if (originalCors !== undefined) {
+      process.env.CORS_ORIGIN = originalCors
+    } else {
+      delete process.env.CORS_ORIGIN
+    }
+  }
 
   console.log(`\n=== Test Results: ${passCount} passed, ${failCount} failed ===\n`)
   server.close()

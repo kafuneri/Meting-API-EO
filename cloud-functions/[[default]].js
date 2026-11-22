@@ -5,12 +5,13 @@ import Meting from '@meting/core'
 import { LRUCache } from 'lru-cache'
 import { formatLyric } from './utils/lyric.js'
 import { getKugouUrlWithFallback, kuwoProvider } from './utils/providers.js'
+import { createCorsOriginChecker } from './utils/cors.js'
 
 const app = express()
 
-// 开启 CORS 跨域支持
+// 开启 CORS 跨域支持（支持 CORS_ORIGIN 环境变量：单域名、多域名逗号分隔及泛域名通配符 *.example.com，默认 *）
 app.use(cors({
-  origin: '*',
+  origin: createCorsOriginChecker(),
   methods: ['GET', 'HEAD', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization']
 }))
