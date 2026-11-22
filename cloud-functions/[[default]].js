@@ -32,7 +32,7 @@ const METING_METHODS = {
   pic: 'pic'
 }
 
-const SUPPORTED_SERVERS = ['netease', 'tencent', 'kugou', 'baidu', 'kuwo']
+const SUPPORTED_SERVERS = ['netease', 'tencent', 'kugou', 'kuwo']
 const SUPPORTED_TYPES = ['song', 'album', 'search', 'artist', 'playlist', 'lrc', 'url', 'pic']
 
 function signToken (server, type, id, secret) {
@@ -80,7 +80,7 @@ async function handleMetingRequest (req, res) {
   // 1. 获取并清洗参数
   const server = (req.query.server || 'netease').toString().toLowerCase()
   const type = (req.query.type || 'playlist').toString().toLowerCase()
-  const defaultId = server === 'netease' ? '19723756' : (server === 'kuwo' ? '228908' : '7326220405')
+  const defaultId = server === 'netease' ? '71385702' : (server === 'kuwo' ? '228908' : '7326220405')
   const id = (req.query.id || defaultId).toString()
   const token = req.query.token || req.query.auth || ''
 
@@ -101,19 +101,7 @@ async function handleMetingRequest (req, res) {
     }
   }
 
-  // 4. 百度音乐（已停服）优雅兜底
-  if (server === 'baidu') {
-    if (type === 'lrc') {
-      res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-      return res.send('[00:00.00]百度音乐(千千音乐)服务已于多年前全面停运关停，上游接口已不可用。\n')
-    }
-    if (['url', 'pic'].includes(type)) {
-      return res.status(404).send('Baidu Music service is defunct upstream')
-    }
-    return res.json([])
-  }
-
-  // 5. 读取缓存或调用上游 API
+  // 4. 读取缓存或调用上游 API
   const cacheKey = `${server}:${type}:${id}`
   let data = cache.get(cacheKey)
 

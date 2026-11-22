@@ -18,7 +18,7 @@ async function runTests () {
         console.log(`[PASS] ${name}`)
         passCount++
       } else {
-        console.error(`[FAIL] ${name} - Validation returned false`)
+        console.error(`[FAIL] ${name} - Validation returned false (status: ${res.status})`)
         failCount++
       }
     } catch (err) {
@@ -43,8 +43,8 @@ async function runTests () {
     return res.status === 400
   })
 
-  // 4. 网易云歌单解析 (playlist - 云音乐飙升榜 19723756)
-  await testCase('NetEase Playlist (/api?server=netease&type=playlist&id=19723756)', '/api?server=netease&type=playlist&id=19723756', async res => {
+  // 4. 网易云 ACG 歌单解析 (playlist - 云音乐ACG音乐榜 71385702)
+  await testCase('NetEase ACG Playlist (/api?server=netease&type=playlist&id=71385702)', '/api?server=netease&type=playlist&id=71385702', async res => {
     if (res.status !== 200) return false
     const json = await res.json()
     return Array.isArray(json) && json.length > 0 && json[0].title && json[0].url
@@ -109,11 +109,9 @@ async function runTests () {
     return text.includes('[') && text.includes('晴天')
   })
 
-  // 14. 百度搜索优雅兜底 (baidu defunct upstream returns empty list 200)
-  await testCase('Baidu Defunct Handling (/api?server=baidu&type=search&id=周杰伦)', '/api?server=baidu&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
-    if (res.status !== 200) return false
-    const json = await res.json()
-    return Array.isArray(json) && json.length === 0
+  // 14. 百度已彻底移除支持校验 (baidu server removed, returns 400)
+  await testCase('Baidu Removed Server Rejection (/api?server=baidu&type=search&id=周杰伦)', '/api?server=baidu&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
+    return res.status === 400
   })
 
   console.log(`\n=== Test Results: ${passCount} passed, ${failCount} failed ===\n`)
