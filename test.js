@@ -76,37 +76,37 @@ async function runTests () {
     return Array.isArray(json) && json.length > 0 && json[0].title
   })
 
-  // 9. 酷狗搜索 (kugou search)
-  await testCase('Kugou Search (/api?server=kugou&type=search&id=周杰伦)', '/api?server=kugou&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
+  // 9. 酷狗非VIP单曲解析 (kugou song - 卡农 文武贝)
+  await testCase('Kugou Free Song (/api?server=kugou&type=song&id=1466d9ee60b499811a2d2ef9eaa664a9)', '/api?server=kugou&type=song&id=1466d9ee60b499811a2d2ef9eaa664a9', async res => {
     if (res.status !== 200) return false
     const json = await res.json()
-    return Array.isArray(json) && json.length > 0 && json[0].title
+    return Array.isArray(json) && json.length > 0 && json[0].title === '卡农'
   })
 
-  // 10. 酷狗 VIP 歌曲播放链接兜底 (kugou url with clip fallback)
-  await testCase('Kugou VIP Song URL Redirect 302 (/api?server=kugou&type=url&id=a14373681262867ab43fef5467f4cc1d)', '/api?server=kugou&type=url&id=a14373681262867ab43fef5467f4cc1d', async res => {
+  // 10. 酷狗非VIP歌曲直链 (kugou url)
+  await testCase('Kugou Free Song URL Redirect 302 (/api?server=kugou&type=url&id=1466d9ee60b499811a2d2ef9eaa664a9)', '/api?server=kugou&type=url&id=1466d9ee60b499811a2d2ef9eaa664a9', async res => {
     const loc = res.headers.get('location')
     return (res.status === 302 || res.status === 301) && loc && loc.startsWith('https://')
   })
 
-  // 11. 酷我搜索 (kuwo search)
-  await testCase('Kuwo Search (/api?server=kuwo&type=search&id=周杰伦)', '/api?server=kuwo&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
+  // 11. 酷我非VIP单曲解析 (kuwo song - 卡农 文武贝)
+  await testCase('Kuwo Free Song (/api?server=kuwo&type=song&id=158975210)', '/api?server=kuwo&type=song&id=158975210', async res => {
     if (res.status !== 200) return false
     const json = await res.json()
-    return Array.isArray(json) && json.length > 0 && json[0].title === '晴天'
+    return Array.isArray(json) && json.length > 0 && json[0].title.includes('卡农')
   })
 
-  // 12. 酷我播放直链 (kuwo url redirect)
-  await testCase('Kuwo Song URL Redirect 302 (/api?server=kuwo&type=url&id=228908)', '/api?server=kuwo&type=url&id=228908', async res => {
+  // 12. 酷我非VIP播放直链 (kuwo url redirect)
+  await testCase('Kuwo Free Song URL Redirect 302 (/api?server=kuwo&type=url&id=158975210)', '/api?server=kuwo&type=url&id=158975210', async res => {
     const loc = res.headers.get('location')
     return (res.status === 302 || res.status === 301) && loc && loc.startsWith('https://')
   })
 
-  // 13. 酷我歌词解析 (kuwo lrc)
-  await testCase('Kuwo Lyric Parsing (/api?server=kuwo&type=lrc&id=228908)', '/api?server=kuwo&type=lrc&id=228908', async res => {
+  // 13. 酷我非VIP歌词解析 (kuwo lrc - 卡农)
+  await testCase('Kuwo Lyric Parsing (/api?server=kuwo&type=lrc&id=158975210)', '/api?server=kuwo&type=lrc&id=158975210', async res => {
     if (res.status !== 200) return false
     const text = await res.text()
-    return text.includes('[') && text.includes('晴天')
+    return text.includes('[') && text.includes('卡农')
   })
 
   // 14. 百度已彻底移除支持校验 (baidu server removed, returns 400)
