@@ -69,11 +69,18 @@ async function runTests () {
     return (res.status === 302 || res.status === 301) && loc && loc.length > 0
   })
 
-  // 8. 网易云歌手精选过滤VIP (artist - 鹿乃 17014)
-  await testCase('NetEase Artist Kano (/api?server=netease&type=artist&id=17014)', '/api?server=netease&type=artist&id=17014', async res => {
+  // 8. 网易云歌手精选过滤VIP (artist - 鹿乃 17014 默认 filter_vip=true，心做し置顶)
+  await testCase('NetEase Artist Kano Default Filter VIP (/api?server=netease&type=artist&id=17014)', '/api?server=netease&type=artist&id=17014', async res => {
     if (res.status !== 200) return false
     const json = await res.json()
     return Array.isArray(json) && json.length > 0 && json[0].title === '心做し'
+  })
+
+  // 8b. 网易云歌手精选取消过滤VIP (filter_vip=false，原始置顶为 VIP 歌曲 Memories of Kindness)
+  await testCase('NetEase Artist Kano Cancel Filter VIP (/api?server=netease&type=artist&id=17014&filter_vip=false)', '/api?server=netease&type=artist&id=17014&filter_vip=false', async res => {
+    if (res.status !== 200) return false
+    const json = await res.json()
+    return Array.isArray(json) && json.length > 0 && json[0].title === 'Memories of Kindness'
   })
 
   // 9. QQ音乐歌单解析 (playlist - 7326220405)

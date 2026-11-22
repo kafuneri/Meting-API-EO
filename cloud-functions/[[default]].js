@@ -76,6 +76,41 @@ function getBaseUrl (req) {
   return ''
 }
 
+// 辅助函数：格式化网易云原始歌曲对象为标准 Meting 数据规范
+function formatNetEaseSong (t) {
+  const e = {
+    id: t.id,
+    name: t.name,
+    artist: [],
+    album: t.al?.name || '',
+    pic_id: t.al?.pic_str || t.al?.pic || t.id,
+    url_id: t.id,
+    lyric_id: t.id,
+    source: 'netease'
+  }
+  if (t.al?.picUrl) {
+    const r = t.al.picUrl.match(/\/(\d+)\./)
+    if (r) e.pic_id = r[1]
+  }
+  if (t.ar) {
+    t.ar.forEach(a => { e.artist.push(a.name) })
+  }
+  return e
+}
+
+// 辅助函数：判断是否启用 VIP 歌曲过滤（无 Cookie 状态下默认 true 开启，可通过环境变量 FILTER_VIP=false 或 query 参数 filter_vip=false 关闭）
+function isVipFilterActive (req, hasCookie) {
+  if (hasCookie) return false
+  if (req.query.filter_vip !== undefined) {
+    return !['false', '0', 'no', 'off'].includes(String(req.query.filter_vip).trim().toLowerCase())
+  }
+  const envVal = process.env.FILTER_VIP ?? process.env.METING_FILTER_VIP
+  if (envVal !== undefined) {
+    return !['false', '0', 'no', 'off'].includes(String(envVal).trim().toLowerCase())
+  }
+  return true
+}
+
 async function handleMetingRequest (req, res) {
   // 1. 获取并清洗参数
   const server = (req.query.server || 'netease').toString().toLowerCase()
@@ -101,8 +136,13 @@ async function handleMetingRequest (req, res) {
     }
   }
 
-  // 4. 读取缓存或调用上游 API
-  const cacheKey = `${server}:${type}:${id}`
+  // 读取对应平台的 Cookie 并判断 VIP 过滤开关
+  const cookieEnvKey = `METING_COOKIE_${server.toUpperCase()}`
+  const cookie = process.env[cookieEnvKey] || process.env.METING_COOKIE
+  const filterVip = isVipFilterActive(req, !!cookie)
+
+  // 4. 读取缓存或调用上游 API（cacheKey 带有 filterVip 状态，避免状态切换命中旧缓存）
+  const cacheKey = `${server}:${type}:${id}:${filterVip ? 'fv1' : 'fv0'}`
   let data = cache.get(cacheKey)
 
   if (data === undefined) {
@@ -127,40 +167,26 @@ async function handleMetingRequest (req, res) {
         // 网易云 / QQ音乐 / 酷狗音乐 使用 @meting/core
         const meting = new Meting(server)
 
-        // 注入对应平台的 Cookie（如配置了环境变量）
-        const cookieEnvKey = `METING_COOKIE_${server.toUpperCase()}`
-        const cookie = process.env[cookieEnvKey] || process.env.METING_COOKIE
         if (cookie) {
           meting.cookie(cookie)
         }
 
-        if (server === 'netease' && type === 'artist' && !cookie) {
-          // 歌手热门曲目：无 VIP Cookie 时优先筛选 fee === 0 的完整非 VIP 音轨（避免 30s 试听片段置顶）
+        if (server === 'netease' && type === 'artist' && filterVip) {
+          // 歌手热门曲目：无 VIP Cookie 且开启过滤时优先筛选 fee === 0 或 8 的完整非 VIP 音轨（避免 30s 试听片段置顶）
           const raw = await meting.format(false).artist(id, 50)
           const json = JSON.parse(raw)
           const allSongs = json.hotSongs || []
           const freeSongs = allSongs.filter(s => s.fee === 0 || s.fee === 8)
           const targetSongs = freeSongs.length > 0 ? freeSongs : allSongs
-          data = targetSongs.map(t => {
-            const e = {
-              id: t.id,
-              name: t.name,
-              artist: [],
-              album: t.al?.name || '',
-              pic_id: t.al?.pic_str || t.al?.pic || t.id,
-              url_id: t.id,
-              lyric_id: t.id,
-              source: 'netease'
-            }
-            if (t.al?.picUrl) {
-              const r = t.al.picUrl.match(/\/(\d+)\./)
-              if (r) e.pic_id = r[1]
-            }
-            if (t.ar) {
-              t.ar.forEach(a => { e.artist.push(a.name) })
-            }
-            return e
-          })
+          data = targetSongs.map(formatNetEaseSong)
+        } else if (server === 'netease' && type === 'search' && filterVip) {
+          // 搜索结果：无 VIP Cookie 且开启过滤时优先筛选 fee === 0 或 8 的非 VIP 音轨
+          const raw = await meting.format(false).search(id, { limit: 30 })
+          const json = JSON.parse(raw)
+          const allSongs = json.result?.songs || []
+          const freeSongs = allSongs.filter(s => s.fee === 0 || s.fee === 8)
+          const targetSongs = freeSongs.length > 0 ? freeSongs : allSongs
+          data = targetSongs.map(formatNetEaseSong)
         } else {
           meting.format(true)
           const method = METING_METHODS[type]

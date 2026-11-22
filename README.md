@@ -93,6 +93,7 @@ edgeone pages deploy
 | :--- | :--- | :--- |
 | `METING_URL` | 自定义绑定的外部访问域名（若不填自动从请求 Host 获取） | `https://music.example.com` |
 | `METING_TOKEN` | HMAC-SHA1 签名密钥，配置后开启接口鉴权保护 | `my_secret_token` |
+| `FILTER_VIP` | 无 Cookie 状态下是否屏蔽 VIP 试听音轨（默认 `true` 开启屏蔽；设为 `false` 取消屏蔽） | `true` / `false` |
 | `METING_COOKIE_NETEASE` | 网易云音乐 VIP 账号 Cookie | `MUSIC_U=xxxx...` |
 | `METING_COOKIE_TENCENT` | QQ 音乐 VIP 账号 Cookie | `uin=xxxx; qm_keyst=xxxx...` |
 
