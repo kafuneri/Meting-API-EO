@@ -80,21 +80,40 @@ async function runTests () {
   await testCase('Kugou Search (/api?server=kugou&type=search&id=周杰伦)', '/api?server=kugou&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
     if (res.status !== 200) return false
     const json = await res.json()
-    return Array.isArray(json) && json.length > 0
+    return Array.isArray(json) && json.length > 0 && json[0].title
   })
 
-  // 10. 酷我搜索 (kuwo search)
+  // 10. 酷狗 VIP 歌曲播放链接兜底 (kugou url with clip fallback)
+  await testCase('Kugou VIP Song URL Redirect 302 (/api?server=kugou&type=url&id=a14373681262867ab43fef5467f4cc1d)', '/api?server=kugou&type=url&id=a14373681262867ab43fef5467f4cc1d', async res => {
+    const loc = res.headers.get('location')
+    return (res.status === 302 || res.status === 301) && loc && loc.startsWith('https://')
+  })
+
+  // 11. 酷我搜索 (kuwo search)
   await testCase('Kuwo Search (/api?server=kuwo&type=search&id=周杰伦)', '/api?server=kuwo&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
     if (res.status !== 200) return false
     const json = await res.json()
-    return Array.isArray(json) && json.length > 0
+    return Array.isArray(json) && json.length > 0 && json[0].title === '晴天'
   })
 
-  // 11. 百度搜索 (baidu search)
-  await testCase('Baidu Search (/api?server=baidu&type=search&id=周杰伦)', '/api?server=baidu&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
+  // 12. 酷我播放直链 (kuwo url redirect)
+  await testCase('Kuwo Song URL Redirect 302 (/api?server=kuwo&type=url&id=228908)', '/api?server=kuwo&type=url&id=228908', async res => {
+    const loc = res.headers.get('location')
+    return (res.status === 302 || res.status === 301) && loc && loc.startsWith('https://')
+  })
+
+  // 13. 酷我歌词解析 (kuwo lrc)
+  await testCase('Kuwo Lyric Parsing (/api?server=kuwo&type=lrc&id=228908)', '/api?server=kuwo&type=lrc&id=228908', async res => {
+    if (res.status !== 200) return false
+    const text = await res.text()
+    return text.includes('[') && text.includes('晴天')
+  })
+
+  // 14. 百度搜索优雅兜底 (baidu defunct upstream returns empty list 200)
+  await testCase('Baidu Defunct Handling (/api?server=baidu&type=search&id=周杰伦)', '/api?server=baidu&type=search&id=%E5%91%A8%E6%9D%B0%E4%BC%A6', async res => {
     if (res.status !== 200) return false
     const json = await res.json()
-    return Array.isArray(json) && json.length > 0
+    return Array.isArray(json) && json.length === 0
   })
 
   console.log(`\n=== Test Results: ${passCount} passed, ${failCount} failed ===\n`)
@@ -105,6 +124,6 @@ async function runTests () {
 }
 
 runTests().catch(err => {
-  console.error('Fatal test error:', err)
+  console.error('Test runner error:', err)
   process.exit(1)
 })

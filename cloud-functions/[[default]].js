@@ -4,6 +4,7 @@ import { createHmac } from 'node:crypto'
 import Meting from '@meting/core'
 import { LRUCache } from 'lru-cache'
 import { formatLyric } from './utils/lyric.js'
+import { getKugouUrlWithFallback, kuwoProvider } from './utils/providers.js'
 
 const app = express()
 
@@ -79,7 +80,7 @@ async function handleMetingRequest (req, res) {
   // 1. 获取并清洗参数
   const server = (req.query.server || 'netease').toString().toLowerCase()
   const type = (req.query.type || 'playlist').toString().toLowerCase()
-  const defaultId = server === 'netease' ? '19723756' : '7326220405'
+  const defaultId = server === 'netease' ? '19723756' : (server === 'kuwo' ? '228908' : '7326220405')
   const id = (req.query.id || defaultId).toString()
   const token = req.query.token || req.query.auth || ''
 
@@ -100,25 +101,64 @@ async function handleMetingRequest (req, res) {
     }
   }
 
-  // 4. 读取缓存或调用上游 API
+  // 4. 百度音乐（已停服）优雅兜底
+  if (server === 'baidu') {
+    if (type === 'lrc') {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+      return res.send('[00:00.00]百度音乐(千千音乐)服务已于多年前全面停运关停，上游接口已不可用。\n')
+    }
+    if (['url', 'pic'].includes(type)) {
+      return res.status(404).send('Baidu Music service is defunct upstream')
+    }
+    return res.json([])
+  }
+
+  // 5. 读取缓存或调用上游 API
   const cacheKey = `${server}:${type}:${id}`
   let data = cache.get(cacheKey)
 
   if (data === undefined) {
     try {
-      const meting = new Meting(server)
-      meting.format(true)
+      if (server === 'kuwo') {
+        // 酷我音乐独立适配器
+        if (type === 'search') {
+          data = await kuwoProvider.search(id)
+        } else if (type === 'song') {
+          data = await kuwoProvider.song(id)
+        } else if (type === 'url') {
+          data = await kuwoProvider.url(id)
+        } else if (type === 'pic') {
+          data = await kuwoProvider.pic(id)
+        } else if (type === 'lrc') {
+          data = await kuwoProvider.lyric(id)
+        } else {
+          // playlist, album, artist
+          data = await kuwoProvider.search(id)
+        }
+      } else {
+        // 网易云 / QQ音乐 / 酷狗音乐 使用 @meting/core
+        const meting = new Meting(server)
+        meting.format(true)
 
-      // 注入对应平台的 Cookie（如配置了环境变量）
-      const cookieEnvKey = `METING_COOKIE_${server.toUpperCase()}`
-      const cookie = process.env[cookieEnvKey] || process.env.METING_COOKIE
-      if (cookie) {
-        meting.cookie(cookie)
+        // 注入对应平台的 Cookie（如配置了环境变量）
+        const cookieEnvKey = `METING_COOKIE_${server.toUpperCase()}`
+        const cookie = process.env[cookieEnvKey] || process.env.METING_COOKIE
+        if (cookie) {
+          meting.cookie(cookie)
+        }
+
+        const method = METING_METHODS[type]
+        const rawResponse = await meting[method](id)
+        data = JSON.parse(rawResponse)
+
+        // 酷狗音乐：当遇到 VIP 版权歌曲返回空直链时，自动提取 60s 试听切片兜底
+        if (server === 'kugou' && type === 'url' && (!data || !data.url)) {
+          const fallback = await getKugouUrlWithFallback(id)
+          if (fallback?.url) {
+            data = fallback
+          }
+        }
       }
-
-      const method = METING_METHODS[type]
-      const rawResponse = await meting[method](id)
-      data = JSON.parse(rawResponse)
 
       // url 缓存 10 分钟，其他元数据缓存 1 小时
       const ttl = type === 'url' ? 1000 * 60 * 10 : 1000 * 60 * 60
@@ -134,12 +174,12 @@ async function handleMetingRequest (req, res) {
     res.setHeader('x-cache', 'hit')
   }
 
-  // 5. 组装并返回结果
+  // 6. 组装并返回结果
   const baseUrl = getBaseUrl(req)
 
-  // 5.1 音频直链 302 重定向
+  // 6.1 音频直链 302 重定向
   if (type === 'url') {
-    let playUrl = data.url
+    let playUrl = data?.url
     if (!playUrl) {
       return res.status(404).send('Audio Not Found')
     }
@@ -153,31 +193,34 @@ async function handleMetingRequest (req, res) {
       playUrl = playUrl
         .replace('http://', 'https://')
         .replace('://ws.stream.qqmusic.qq.com', '://dl.stream.qqmusic.qq.com')
-    } else if (server === 'baidu') {
-      playUrl = playUrl.replace(
-        'http://zhangmenshiting.qianqian.com',
-        'https://gss3.baidu.com/y0s1hSulBw92lNKgpU_Z2jR7b2w6buu'
-      )
+    } else if (server === 'kugou' || server === 'kuwo') {
+      playUrl = playUrl.replace('http://', 'https://')
     }
     return res.redirect(302, playUrl)
   }
 
-  // 5.2 封面图片 302 重定向
+  // 6.2 封面图片 302 重定向
   if (type === 'pic') {
-    const picUrl = data.url
+    let picUrl = data?.url
     if (!picUrl) {
       return res.status(404).send('Cover Picture Not Found')
+    }
+    if (server === 'kuwo') {
+      picUrl = picUrl.replace('http://img1.kwcdn.kuwo.cn', 'https://img4.kuwo.cn')
+                     .replace('http://', 'https://')
+    } else if (server === 'kugou') {
+      picUrl = picUrl.replace('http://', 'https://')
     }
     return res.redirect(302, picUrl)
   }
 
-  // 5.3 歌词返回（双语时间轴对齐合并）
+  // 6.3 歌词返回（双语时间轴对齐合并）
   if (type === 'lrc') {
     res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-    return res.send(formatLyric(data.lyric, data.tlyric))
+    return res.send(formatLyric(data?.lyric, data?.tlyric))
   }
 
-  // 5.4 歌曲列表/单曲（格式化为 MetingJS / APlayer 标准数据规范）
+  // 6.4 歌曲列表/单曲（格式化为 MetingJS / APlayer 标准数据规范）
   const list = Array.isArray(data) ? data : [data]
   const formatted = list.map(item => {
     const authUrl = secretToken ? `&auth=${signToken(server, 'url', item.url_id, secretToken)}` : ''
