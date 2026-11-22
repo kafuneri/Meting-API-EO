@@ -42,8 +42,8 @@ function getBaseUrl (req) {
   if (process.env.METING_URL) {
     return process.env.METING_URL.replace(/\/+$/, '')
   }
-  const host = req.get('host') || 'localhost'
-  const protocol = req.headers['x-forwarded-proto'] || req.protocol || 'https'
+  const host = req.headers['x-forwarded-host'] || req.headers['x-real-host'] || req.get('host') || 'localhost'
+  const protocol = req.headers['x-forwarded-proto'] || (req.get('host')?.includes('localhost') ? 'http' : 'https')
   return `${protocol}://${host}`
 }
 

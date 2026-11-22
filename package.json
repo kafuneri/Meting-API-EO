@@ -6,7 +6,8 @@
   "main": "cloud-functions/[[default]].js",
   "scripts": {
     "dev": "node local-dev.js",
-    "test": "node test.js"
+    "test": "node test.js",
+    "preview": "node get-preview-url.js"
   },
   "engines": {
     "node": ">=18.0.0"
