@@ -69,7 +69,14 @@ async function runTests () {
     return (res.status === 302 || res.status === 301) && loc && loc.length > 0
   })
 
-  // 8. QQ音乐歌单解析 (playlist - 7326220405)
+  // 8. 网易云歌手精选过滤VIP (artist - 鹿乃 17014)
+  await testCase('NetEase Artist Kano (/api?server=netease&type=artist&id=17014)', '/api?server=netease&type=artist&id=17014', async res => {
+    if (res.status !== 200) return false
+    const json = await res.json()
+    return Array.isArray(json) && json.length > 0 && json[0].title === '心做し'
+  })
+
+  // 9. QQ音乐歌单解析 (playlist - 7326220405)
   await testCase('Tencent Playlist (/api?server=tencent&type=playlist&id=7326220405)', '/api?server=tencent&type=playlist&id=7326220405', async res => {
     if (res.status !== 200) return false
     const json = await res.json()

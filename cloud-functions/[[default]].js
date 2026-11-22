@@ -126,7 +126,6 @@ async function handleMetingRequest (req, res) {
       } else {
         // 网易云 / QQ音乐 / 酷狗音乐 使用 @meting/core
         const meting = new Meting(server)
-        meting.format(true)
 
         // 注入对应平台的 Cookie（如配置了环境变量）
         const cookieEnvKey = `METING_COOKIE_${server.toUpperCase()}`
@@ -135,9 +134,39 @@ async function handleMetingRequest (req, res) {
           meting.cookie(cookie)
         }
 
-        const method = METING_METHODS[type]
-        const rawResponse = await meting[method](id)
-        data = JSON.parse(rawResponse)
+        if (server === 'netease' && type === 'artist' && !cookie) {
+          // 歌手热门曲目：无 VIP Cookie 时优先筛选 fee === 0 的完整非 VIP 音轨（避免 30s 试听片段置顶）
+          const raw = await meting.format(false).artist(id, 50)
+          const json = JSON.parse(raw)
+          const allSongs = json.hotSongs || []
+          const freeSongs = allSongs.filter(s => s.fee === 0 || s.fee === 8)
+          const targetSongs = freeSongs.length > 0 ? freeSongs : allSongs
+          data = targetSongs.map(t => {
+            const e = {
+              id: t.id,
+              name: t.name,
+              artist: [],
+              album: t.al?.name || '',
+              pic_id: t.al?.pic_str || t.al?.pic || t.id,
+              url_id: t.id,
+              lyric_id: t.id,
+              source: 'netease'
+            }
+            if (t.al?.picUrl) {
+              const r = t.al.picUrl.match(/\/(\d+)\./)
+              if (r) e.pic_id = r[1]
+            }
+            if (t.ar) {
+              t.ar.forEach(a => { e.artist.push(a.name) })
+            }
+            return e
+          })
+        } else {
+          meting.format(true)
+          const method = METING_METHODS[type]
+          const rawResponse = await meting[method](id)
+          data = JSON.parse(rawResponse)
+        }
 
         // 酷狗音乐：当遇到 VIP 版权歌曲返回空直链时，自动提取 60s 试听切片兜底
         if (server === 'kugou' && type === 'url' && (!data || !data.url)) {
