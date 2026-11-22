@@ -88,21 +88,107 @@
       color: #ffffff;
       border-color: var(--primary);
     }
-    code {
-      background: #f1f5f9;
-      padding: 0.2rem 0.4rem;
+    :not(pre) > code {
+      background: #eff6ff;
+      color: #1d4ed8;
+      padding: 0.15rem 0.45rem;
       border-radius: 4px;
-      font-size: 0.875rem;
-      color: #d946ef;
+      font-size: 0.85em;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, "Liberation Mono", "Courier New", monospace;
+      border: 1px solid #dbeafe;
     }
-    pre {
+    .code-container {
+      position: relative;
       background: #0f172a;
-      color: #f8fafc;
-      padding: 1rem;
-      border-radius: 8px;
-      overflow-x: auto;
-      font-size: 0.875rem;
+      border-radius: 10px;
+      border: 1px solid #1e293b;
+      box-shadow: 0 4px 14px rgba(0, 0, 0, 0.15);
+      overflow: hidden;
+      margin-top: 0.85rem;
     }
+    .code-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 0.6rem 1rem;
+      background: #1e293b;
+      border-bottom: 1px solid #334155;
+    }
+    .code-window-controls {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+    }
+    .code-dot {
+      width: 11px;
+      height: 11px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot-red { background: #ef4444; }
+    .dot-yellow { background: #eab308; }
+    .dot-green { background: #22c55e; }
+    .code-title {
+      color: #94a3b8;
+      font-size: 0.775rem;
+      font-weight: 500;
+      font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+      margin-left: 0.5rem;
+    }
+    .copy-btn {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.4rem;
+      padding: 0.3rem 0.75rem;
+      font-size: 0.75rem;
+      font-weight: 500;
+      background: #334155;
+      color: #f1f5f9;
+      border: 1px solid #475569;
+      border-radius: 6px;
+      cursor: pointer;
+      transition: all 0.2s ease;
+    }
+    .copy-btn:hover {
+      background: #475569;
+      color: #ffffff;
+      border-color: #64748b;
+    }
+    .copy-btn.copied {
+      background: #059669;
+      border-color: #059669;
+      color: #ffffff;
+    }
+    pre.code-body {
+      margin: 0;
+      padding: 1.25rem 1.25rem;
+      overflow-x: auto;
+      background: #0f172a;
+      color: #e2e8f0;
+      font-family: 'JetBrains Mono', 'Fira Code', 'Cascadia Code', Consolas, Menlo, Monaco, 'Courier New', monospace;
+      font-size: 0.85rem;
+      line-height: 1.75;
+    }
+    pre.code-body code {
+      background: transparent !important;
+      padding: 0 !important;
+      border: none !important;
+      color: inherit !important;
+      font-size: inherit !important;
+      font-family: inherit !important;
+      display: block;
+      white-space: pre;
+    }
+    /* Syntax Highlighting Colors */
+    .c-comment { color: #64748b; font-style: italic; }
+    .c-tag { color: #38bdf8; font-weight: 500; }
+    .c-keyword { color: #f43f5e; font-weight: 600; }
+    .c-var { color: #e2e8f0; }
+    .c-prop { color: #38bdf8; }
+    .c-string { color: #a3e635; }
+    .c-attr { color: #fbbf24; }
+    .c-val { color: #a3e635; }
+    .c-punct { color: #94a3b8; }
     table {
       width: 100%;
       border-collapse: collapse;
@@ -155,19 +241,33 @@
     <!-- 使用方法 -->
     <div class="card">
       <h2>📖 MetingJS 配置说明</h2>
-      <p style="font-size: 0.875rem;">在前端网页引入 APlayer 与 MetingJS 之前，全局声明你的 EdgeOne API 地址：</p>
-      <pre><code>&lt;!-- 1. 声明自定义 Meting API 地址 --&gt;
-&lt;script&gt;
-  var meting_api = window.location.origin + '/api?server=:server&type=:type&id=:id&auth=:auth&r=:r';
-&lt;/script&gt;
+      <p style="font-size: 0.875rem; color: var(--text-muted); margin-bottom: 0.5rem;">在前端网页引入 APlayer 与 MetingJS 之前，全局声明你的 EdgeOne API 地址：</p>
+      <div class="code-container">
+        <div class="code-header">
+          <div class="code-window-controls">
+            <span class="code-dot dot-red"></span>
+            <span class="code-dot dot-yellow"></span>
+            <span class="code-dot dot-green"></span>
+            <span class="code-title">APlayer + MetingJS HTML 示例</span>
+          </div>
+          <button class="copy-btn" id="copy-btn" onclick="copyCodeSnippet(this)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg>
+            <span>复制代码</span>
+          </button>
+        </div>
+        <pre class="code-body"><code><span class="c-comment">&lt;!-- 1. 声明自定义 Meting API 地址 --&gt;</span>
+<span class="c-tag">&lt;script&gt;</span>
+  <span class="c-keyword">var</span> <span class="c-var">meting_api</span> <span class="c-punct">=</span> <span class="c-var">window</span>.<span class="c-prop">location</span>.<span class="c-prop">origin</span> <span class="c-punct">+</span> <span class="c-string">'/api?server=:server&amp;type=:type&amp;id=:id&amp;auth=:auth&amp;r=:r'</span><span class="c-punct">;</span>
+<span class="c-tag">&lt;/script&gt;</span>
 
-&lt;!-- 2. 引入 APlayer 和 MetingJS --&gt;
-&lt;link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css"&gt;
-&lt;script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"&gt;&lt;/script&gt;
-&lt;script src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"&gt;&lt;/script&gt;
+<span class="c-comment">&lt;!-- 2. 引入 APlayer 和 MetingJS --&gt;</span>
+<span class="c-tag">&lt;link</span> <span class="c-attr">rel</span>=<span class="c-val">"stylesheet"</span> <span class="c-attr">href</span>=<span class="c-val">"https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css"</span><span class="c-tag">&gt;</span>
+<span class="c-tag">&lt;script</span> <span class="c-attr">src</span>=<span class="c-val">"https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"</span><span class="c-tag">&gt;&lt;/script&gt;</span>
+<span class="c-tag">&lt;script</span> <span class="c-attr">src</span>=<span class="c-val">"https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"</span><span class="c-tag">&gt;&lt;/script&gt;</span>
 
-&lt;!-- 3. 页面中使用 --&gt;
-&lt;meting-js server="netease" type="playlist" id="7326220405"&gt;&lt;/meting-js&gt;</code></pre>
+<span class="c-comment">&lt;!-- 3. 页面中使用 --&gt;</span>
+<span class="c-tag">&lt;meting-js</span> <span class="c-attr">server</span>=<span class="c-val">"netease"</span> <span class="c-attr">type</span>=<span class="c-val">"playlist"</span> <span class="c-attr">id</span>=<span class="c-val">"7326220405"</span><span class="c-tag">&gt;&lt;/meting-js&gt;</span></code></pre>
+      </div>
     </div>
 
     <!-- 支持参数表 -->
@@ -214,6 +314,32 @@
 
   <script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script>
   <script>
+    function copyCodeSnippet(btn) {
+      const rawCode = `<!-- 1. 声明自定义 Meting API 地址 -->
+<script>
+  var meting_api = window.location.origin + '/api?server=:server&type=:type&id=:id&auth=:auth&r=:r';
+<\/script>
+
+<!-- 2. 引入 APlayer 和 MetingJS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.css">
+<script src="https://cdn.jsdelivr.net/npm/aplayer/dist/APlayer.min.js"><\/script>
+<script src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"><\/script>
+
+<!-- 3. 页面中使用 -->
+<meting-js server="netease" type="playlist" id="7326220405"></meting-js>`;
+
+      navigator.clipboard.writeText(rawCode).then(() => {
+        btn.classList.add('copied');
+        btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="20 6 9 17 4 12"></polyline></svg><span>已复制!</span>`;
+        setTimeout(() => {
+          btn.classList.remove('copied');
+          btn.innerHTML = `<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="9" y="9" width="13" height="13" rx="2" ry="2"></rect><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"></path></svg><span>复制代码</span>`;
+        }, 2000);
+      }).catch(err => {
+        console.error('复制失败:', err);
+      });
+    }
+
     document.addEventListener('DOMContentLoaded', async () => {
       const container = document.getElementById('player-container');
       try {

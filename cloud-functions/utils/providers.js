@@ -108,9 +108,15 @@ export const kuwoProvider = {
     const info = await this._getSongInfo(id)
     const song = info?.songinfo
     if (song) {
+      let songName = song.songName || ''
+      if (!songName && Array.isArray(info?.lrclist) && info.lrclist.length > 0) {
+        const firstLine = info.lrclist[0].lineLyric || ''
+        const parts = firstLine.split(' - ')
+        songName = parts[0]?.trim() || firstLine.trim()
+      }
       return {
         id: String(song.id || id),
-        name: song.songName || '',
+        name: songName || 'Kuwo Music',
         artist: song.artist ? song.artist.split('&') : ['Unknown'],
         album: song.album || '',
         pic_id: String(song.id || id),

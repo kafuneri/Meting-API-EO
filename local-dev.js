@@ -1,13 +1,22 @@
 import express from 'express'
 import { resolve } from 'node:path'
-import app from './cloud-functions/[[default]].js'
+import apiApp from './cloud-functions/[[default]].js'
 
-// 本地开发静态文件映射
+const app = express()
+
+// 本地开发优先匹配 public 静态资源
 app.use(express.static('public'))
+
+app.get('/', (req, res) => {
+  res.sendFile(resolve('public/index.html'))
+})
 
 app.get('/test', (req, res) => {
   res.sendFile(resolve('public/test.html'))
 })
+
+// 其他请求（如 /api, /health）由云函数应用统一接管
+app.use(apiApp)
 
 const PORT = process.env.PORT || 3000
 app.listen(PORT, () => {
