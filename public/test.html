@@ -1,0 +1,222 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Meting API - 功能预览与全平台测试</title>
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.css">
+  <style>
+    :root {
+      --primary: #0066ff;
+      --bg: #f8fafc;
+      --card-bg: #ffffff;
+      --text: #1e293b;
+      --text-muted: #64748b;
+      --border: #e2e8f0;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      padding: 2rem 1rem;
+      line-height: 1.6;
+    }
+    .container {
+      max-width: 900px;
+      margin: 0 auto;
+    }
+    .header {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .badge {
+      display: inline-block;
+      padding: 0.35rem 0.75rem;
+      border-radius: 9999px;
+      font-size: 0.825rem;
+      font-weight: 600;
+      background: #e0f2fe;
+      color: #0284c7;
+      margin-bottom: 0.75rem;
+    }
+    h1 {
+      margin: 0 0 0.5rem 0;
+      font-size: 2rem;
+    }
+    p.subtitle {
+      color: var(--text-muted);
+      margin: 0;
+    }
+    .nav {
+      margin-top: 1rem;
+    }
+    .nav a {
+      color: var(--primary);
+      text-decoration: none;
+      font-size: 0.9rem;
+      font-weight: 500;
+    }
+    .nav a:hover {
+      text-decoration: underline;
+    }
+    .test-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 1.5rem;
+    }
+    .test-card {
+      background: var(--card-bg);
+      border-radius: 12px;
+      padding: 1.25rem 1.5rem;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+      border: 1px solid var(--border);
+    }
+    .test-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      margin-bottom: 0.75rem;
+    }
+    .test-title {
+      font-size: 1.05rem;
+      font-weight: 600;
+      display: flex;
+      align-items: center;
+      gap: 0.5rem;
+    }
+    .tag {
+      font-size: 0.75rem;
+      padding: 0.2rem 0.5rem;
+      border-radius: 4px;
+      background: #f1f5f9;
+      color: #475569;
+      font-family: monospace;
+    }
+    .tag-netease { background: #fee2e2; color: #dc2626; }
+    .tag-tencent { background: #dcfce7; color: #16a34a; }
+    .tag-kugou { background: #e0f2fe; color: #0284c7; }
+    .tag-kuwo { background: #fef3c7; color: #d97706; }
+    .tag-baidu { background: #f3e8ff; color: #9333ea; }
+  </style>
+  <script>
+    // 动态绑定本地/线上 API 地址
+    var meting_api = window.location.origin + '/api?server=:server&type=:type&id=:id&auth=:auth&r=:r';
+  </script>
+  <script src="https://cdn.jsdelivr.net/npm/aplayer@1.10.1/dist/APlayer.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/meting@2.0.1/dist/Meting.min.js"></script>
+</head>
+<body>
+  <div class="container">
+    <div class="header">
+      <span class="badge">EdgeOne Cloud Functions 实机预览</span>
+      <h1>功能预览与全平台测试</h1>
+      <p class="subtitle">实时调用当前服务 API 解析各大音乐平台流媒体直链与歌词</p>
+      <div class="nav">
+        <a href="/">← 返回首页与接口文档</a>
+      </div>
+    </div>
+
+    <div class="test-grid">
+      <!-- 1. 网易云 - 歌单 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>网易云音乐 - 歌单解析 (云音乐飙升榜)</span>
+          </div>
+          <span class="tag tag-netease">server="netease" type="playlist" id="19723756"</span>
+        </div>
+        <meting-js server="netease" type="playlist" id="19723756" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 2. 网易云 - 单曲 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>网易云音乐 - 单曲解析与双语歌词 (追梦赤子心)</span>
+          </div>
+          <span class="tag tag-netease">server="netease" type="song" id="35847388"</span>
+        </div>
+        <meting-js server="netease" type="song" id="35847388" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 3. 网易云 - 歌手热门 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>网易云音乐 - 歌手热门单曲 (周杰伦)</span>
+          </div>
+          <span class="tag tag-netease">server="netease" type="artist" id="6452"</span>
+        </div>
+        <meting-js server="netease" type="artist" id="6452" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 4. 网易云 - 搜索 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>网易云音乐 - 关键词搜索 (晴天)</span>
+          </div>
+          <span class="tag tag-netease">server="netease" type="search" id="晴天"</span>
+        </div>
+        <meting-js server="netease" type="search" id="晴天" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 5. QQ 音乐 - 歌单 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>QQ 音乐 - 歌单解析</span>
+          </div>
+          <span class="tag tag-tencent">server="tencent" type="playlist" id="7326220405"</span>
+        </div>
+        <meting-js server="tencent" type="playlist" id="7326220405" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 6. QQ 音乐 - 单曲 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>QQ 音乐 - 单曲解析</span>
+          </div>
+          <span class="tag tag-tencent">server="tencent" type="song" id="002Rnpvi058Qdm"</span>
+        </div>
+        <meting-js server="tencent" type="song" id="002Rnpvi058Qdm" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 7. 酷狗音乐 - 搜索 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>酷狗音乐 - 搜索 (周杰伦)</span>
+          </div>
+          <span class="tag tag-kugou">server="kugou" type="search" id="周杰伦"</span>
+        </div>
+        <meting-js server="kugou" type="search" id="周杰伦" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 8. 酷我音乐 - 搜索 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>酷我音乐 - 搜索 (周杰伦)</span>
+          </div>
+          <span class="tag tag-kuwo">server="kuwo" type="search" id="周杰伦"</span>
+        </div>
+        <meting-js server="kuwo" type="search" id="周杰伦" list-folded="true"></meting-js>
+      </div>
+
+      <!-- 9. 百度音乐 - 搜索 -->
+      <div class="test-card">
+        <div class="test-meta">
+          <div class="test-title">
+            <span>百度音乐 - 搜索 (周杰伦)</span>
+          </div>
+          <span class="tag tag-baidu">server="baidu" type="search" id="周杰伦"</span>
+        </div>
+        <meting-js server="baidu" type="search" id="周杰伦" list-folded="true"></meting-js>
+      </div>
+    </div>
+  </div>
+</body>
+</html>
