@@ -1,3 +1,5 @@
 node_modules/
 .env
-cookie/
+.edgeone/
+.DS_Store
+*.log
