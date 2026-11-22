@@ -42,9 +42,37 @@ function getBaseUrl (req) {
   if (process.env.METING_URL) {
     return process.env.METING_URL.replace(/\/+$/, '')
   }
-  const host = req.headers['x-forwarded-host'] || req.headers['x-real-host'] || req.get('host') || 'localhost'
-  const protocol = req.headers['x-forwarded-proto'] || (req.get('host')?.includes('localhost') ? 'http' : 'https')
-  return `${protocol}://${host}`
+  const isInternal = (h) => !h || h.includes('.qcloudteo.com') || h.includes('.tencentscf.com')
+
+  // 1. 优先提取反向代理 / CDN 传递的公网 Host
+  const forwardedHost = req.headers['x-forwarded-host'] || 
+                        req.headers['x-real-host'] || 
+                        req.headers['x-original-host'] || ''
+  if (forwardedHost && !isInternal(forwardedHost)) {
+    const proto = req.headers['x-forwarded-proto'] || 'https'
+    return `${proto}://${forwardedHost}`
+  }
+
+  // 2. 检查普通 Host（排除 SCF 内部集群域名）
+  const host = req.get('host')
+  if (host && !isInternal(host)) {
+    const proto = req.headers['x-forwarded-proto'] || (host.includes('localhost') ? 'http' : 'https')
+    return `${proto}://${host}`
+  }
+
+  // 3. 从 Referer / Origin 获取客户端访问的公网地址
+  const referer = req.headers.referer || req.headers.origin
+  if (referer) {
+    try {
+      const u = new URL(referer)
+      if (!isInternal(u.host)) {
+        return `${u.protocol}//${u.host}`
+      }
+    } catch {}
+  }
+
+  // 4. 兜底返回相对路径
+  return ''
 }
 
 async function handleMetingRequest (req, res) {
@@ -121,13 +149,6 @@ async function handleMetingRequest (req, res) {
         .replace('://m7c.', '://m7.')
         .replace('://m8c.', '://m8.')
         .replace('http://', 'https://')
-      if (playUrl.includes('vuutv=')) {
-        try {
-          const u = new URL(playUrl)
-          u.search = ''
-          playUrl = u.toString()
-        } catch {}
-      }
     } else if (server === 'tencent') {
       playUrl = playUrl
         .replace('http://', 'https://')
