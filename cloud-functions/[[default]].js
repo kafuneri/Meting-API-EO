@@ -284,7 +284,13 @@ async function handleMetingRequest (req, res) {
 
 // 路由挂载
 app.get('/health', (req, res) => {
-  res.json({ status: 'ok', provider: 'Tencent Cloud EdgeOne Pages Cloud Functions', timestamp: Date.now() })
+  res.json({
+    status: 'ok',
+    host: req.get('host'),
+    headers: req.headers,
+    provider: 'Tencent Cloud EdgeOne Pages Cloud Functions',
+    timestamp: Date.now()
+  })
 })
 
 // 兼容所有路径（/api, /api/*, / 等），由 handleMetingRequest 处理
