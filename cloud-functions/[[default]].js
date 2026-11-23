@@ -199,9 +199,12 @@ async function handleMetingRequest (req, res) {
         }
       }
 
-      // url 缓存 10 分钟，其他元数据缓存 1 小时
-      const ttl = type === 'url' ? 1000 * 60 * 10 : 1000 * 60 * 60
-      cache.set(cacheKey, data, { ttl })
+      // url 缓存 10 分钟，其他元数据缓存 1 小时（url/pic 空直链不写入缓存）
+      const shouldCache = !((type === 'url' || type === 'pic') && !data?.url)
+      if (shouldCache) {
+        const ttl = type === 'url' ? 1000 * 60 * 10 : 1000 * 60 * 60
+        cache.set(cacheKey, data, { ttl })
+      }
       res.setHeader('x-cache', 'miss')
     } catch (err) {
       return res.status(500).json({
