@@ -80,6 +80,8 @@ edgeone pages deploy
 | `server` | `netease` | `netease`, `tencent`, `kugou`, `kuwo` | 音乐平台代码 |
 | `type` | `playlist` | `song`, `album`, `search`, `artist`, `playlist`, `lrc`, `url`, `pic` | 请求数据类型 |
 | `id` | - | 字符串 / 数字 | 歌曲 ID、歌单 ID 或搜索关键词 |
+| `br` | `320` / `METING_BR` | `128`, `192`, `320`, `740`, `999` | 目标音频码率（仅对 `type=url` 及曲目列表中生成的播放链接生效） |
+| `filter_vip` | `true` / `FILTER_VIP` | `true`, `false` | 无 Cookie 状态下是否过滤网易云 VIP 试听音轨（设为 `false` 取消过滤） |
 | `auth` / `token` | - | 字符串 | HMAC 签名 token（未配置 `METING_TOKEN` 环境变量时免鉴权） |
 
 ---
@@ -93,9 +95,19 @@ edgeone pages deploy
 | `METING_URL` | 自定义绑定的外部访问域名（若不填自动从请求 Host 获取） | `https://music.example.com` |
 | `CORS_ORIGIN` | 允许跨域请求的域名白名单。默认 `*` 允许所有源；支持配置单个源、逗号分隔多源或泛域名 | `*` / `https://a.com,https://b.com,*.example.com` |
 | `METING_TOKEN` | HMAC-SHA1 签名密钥，配置后开启接口鉴权保护 | `my_secret_token` |
+| `METING_BR` | 默认音频码率（可选 `128` / `192` / `320` / `740` / `999`，默认 `320`） | `320` |
 | `FILTER_VIP` | 无 Cookie 状态下是否屏蔽 VIP 试听音轨（默认 `true` 开启屏蔽；设为 `false` 取消屏蔽） | `true` / `false` |
 | `METING_COOKIE_NETEASE` | 网易云音乐 VIP 账号 Cookie | `MUSIC_U=xxxx...` |
 | `METING_COOKIE_TENCENT` | QQ 音乐 VIP 账号 Cookie | `uin=xxxx; qm_keyst=xxxx...` |
+
+---
+
+## 常见问题与避坑指南
+
+- **海外节点或开启代理后报 `Audio Not Found` / 播放器提示 `An audio error has occurred`**：
+  如果在 EdgeOne Pages 选择了「全球可用区（含中国大陆）」，海外或代理请求默认会被就近调度到海外云函数地域（如新加坡 `ap-singapore`），而网易云/QQ音乐上游接口会拦截海外服务器 IP。可在 EdgeOne 控制台**关闭海外云函数地域**，仅保留中国大陆云函数地域回源上游接口即可恢复正常。
+- **验证环境变量是否生效**：
+  部署后直接访问 `/health` 或 `/api/health`，可查看脱敏后的配置状态（如 `authEnabled`、`corsRestricted`、`defaultBr`、各平台 Cookie 是否已加载）以及当前实例 LRU 缓存条目数（不会泄露任何密钥或 Cookie 明文）。
 
 ---
 

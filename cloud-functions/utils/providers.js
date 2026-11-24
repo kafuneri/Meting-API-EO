@@ -1,5 +1,90 @@
 import crypto from 'node:crypto'
 
+const FETCH_TIMEOUT_MS = 5000
+const KUWO_INFO_TIMEOUT_MS = 3500
+
+/**
+ * 安全解析酷我搜索接口返回的伪 JSON（单引号键值对等非标准 JSON）
+ * @param {string} text 原始响应文本
+ * @returns {Record<string, any>}
+ */
+export function parseKuwoPseudoJson (text) {
+  if (!text || typeof text !== 'string') return {}
+  const trimmed = text.trim()
+  if (!trimmed) return {}
+
+  try {
+    return JSON.parse(trimmed)
+  } catch {}
+
+  let out = ''
+  let inSingle = false
+  let inDouble = false
+
+  for (let i = 0; i < trimmed.length; i++) {
+    const ch = trimmed[i]
+
+    if (inSingle) {
+      if (ch === '\\') {
+        const next = trimmed[i + 1]
+        if (next === undefined) break
+        if (next === "'") {
+          out += "'"
+        } else if (next === '"') {
+          out += '\\"'
+        } else if ('"\\/bfnrtu'.includes(next)) {
+          out += '\\' + next
+        } else {
+          out += next
+        }
+        i++
+      } else if (ch === '"') {
+        out += '\\"'
+      } else if (ch === "'") {
+        out += '"'
+        inSingle = false
+      } else if (ch === '\n') {
+        out += '\\n'
+      } else if (ch === '\r') {
+        out += '\\r'
+      } else if (ch === '\t') {
+        out += '\\t'
+      } else if (ch.charCodeAt(0) < 0x20) {
+        out += `\\u${ch.charCodeAt(0).toString(16).padStart(4, '0')}`
+      } else {
+        out += ch
+      }
+    } else if (inDouble) {
+      out += ch
+      if (ch === '\\') {
+        const next = trimmed[i + 1]
+        if (next !== undefined) {
+          out += next
+          i++
+        }
+      } else if (ch === '"') {
+        inDouble = false
+      }
+    } else {
+      if (ch === "'") {
+        out += '"'
+        inSingle = true
+      } else {
+        if (ch === '"') {
+          inDouble = true
+        }
+        out += ch
+      }
+    }
+  }
+
+  try {
+    return JSON.parse(out)
+  } catch {
+    return {}
+  }
+}
+
 /**
  * 酷狗音乐高可用解析增强
  * 当上游 @meting/core 遇到版权 VIP 歌曲返回空直链时，自动降级提取官方 60 秒高保真试听切片 (clip_hash)
@@ -25,7 +110,8 @@ export async function getKugouUrlWithFallback (hash, targetBr = 320) {
         'Content-Type': 'application/json',
         'User-Agent': 'Mozilla/5.0'
       },
-      body
+      body,
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
     })
     const json = await res.json()
     const d = json?.data?.[0]
@@ -39,7 +125,10 @@ export async function getKugouUrlWithFallback (hash, targetBr = 320) {
         if (itemBr <= targetBr) {
           const key = crypto.createHash('md5').update(item.hash + 'kgcloudv2').digest('hex')
           const trackerUrl = `http://trackercdn.kugou.com/i/v2/?hash=${item.hash}&key=${key}&pid=3&behavior=play&cmd=25&version=8990`
-          const tRes = await fetch(trackerUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+          const tRes = await fetch(trackerUrl, {
+            headers: { 'User-Agent': 'Mozilla/5.0' },
+            signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+          })
           const tJson = await tRes.json()
           if (tJson.status === 1 && Array.isArray(tJson.url) && tJson.url[0]) {
             return {
@@ -57,7 +146,10 @@ export async function getKugouUrlWithFallback (hash, targetBr = 320) {
     if (clipHash) {
       const key = crypto.createHash('md5').update(clipHash + 'kgcloudv2').digest('hex')
       const trackerUrl = `http://trackercdn.kugou.com/i/v2/?hash=${clipHash}&key=${key}&pid=3&behavior=play&cmd=25&version=8990`
-      const tRes = await fetch(trackerUrl, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+      const tRes = await fetch(trackerUrl, {
+        headers: { 'User-Agent': 'Mozilla/5.0' },
+        signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+      })
       const tJson = await tRes.json()
       if (tJson.status === 1 && Array.isArray(tJson.url) && tJson.url[0]) {
         return {
@@ -81,12 +173,12 @@ export async function getKugouUrlWithFallback (hash, targetBr = 320) {
 export const kuwoProvider = {
   async search (keyword, page = 1, limit = 30) {
     const url = `http://search.kuwo.cn/r.s?client=kt&all=${encodeURIComponent(keyword)}&pn=${page - 1}&rn=${limit}&uid=794762323&ver=kwplayer_ar_9.2.2.1&vipver=1&show_copyright_off=1&newsearch=1&ft=music&cluster=0&strategy=2012&encoding=utf8&rformat=json`
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+    })
     const text = await res.text()
-    let data = {}
-    try {
-      data = (new Function('return ' + text))()
-    } catch {}
+    const data = parseKuwoPseudoJson(text)
     const list = data?.abslist || []
     return list.map(item => {
       const id = (item.DC_TARGETID || item.MUSICRID || '').replace('MUSIC_', '')
@@ -140,7 +232,10 @@ export const kuwoProvider = {
 
   async url (id) {
     const url = `http://antiserver.kuwo.cn/anti.s?type=convert_url&rid=${id}&format=mp3&response=url`
-    const res = await fetch(url, { headers: { 'User-Agent': 'Mozilla/5.0' } })
+    const res = await fetch(url, {
+      headers: { 'User-Agent': 'Mozilla/5.0' },
+      signal: AbortSignal.timeout(FETCH_TIMEOUT_MS)
+    })
     const playUrl = (await res.text()).trim()
     if (playUrl && playUrl.startsWith('http')) {
       return { url: playUrl, br: 128 }
@@ -189,7 +284,8 @@ export const kuwoProvider = {
               'User-Agent': 'Mozilla/5.0 (iPhone; CPU iPhone OS 16_0 like Mac OS X)',
               'Referer': 'https://m.kuwo.cn/',
               ...(cookie ? { Cookie: cookie } : {})
-            }
+            },
+            signal: AbortSignal.timeout(KUWO_INFO_TIMEOUT_MS)
           })
           const setCookies = res.headers.getSetCookie ? res.headers.getSetCookie() : [res.headers.get('set-cookie')]
           if (setCookies && setCookies.length > 0) {

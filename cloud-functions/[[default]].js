@@ -35,6 +35,19 @@ const METING_METHODS = {
 
 const SUPPORTED_SERVERS = ['netease', 'tencent', 'kugou', 'kuwo']
 const SUPPORTED_TYPES = ['song', 'album', 'search', 'artist', 'playlist', 'lrc', 'url', 'pic']
+const SUPPORTED_BITRATES = [128, 192, 320, 740, 999]
+
+function parseBitrate (queryBr) {
+  for (const raw of [queryBr, process.env.METING_BR]) {
+    if (raw !== undefined && raw !== null && String(raw).trim() !== '') {
+      const num = Number(raw)
+      if (SUPPORTED_BITRATES.includes(num)) {
+        return num
+      }
+    }
+  }
+  return 320
+}
 
 function signToken (server, type, id, secret) {
   return createHmac('sha1', secret).update(`${server}${type}${id}`).digest('hex')
@@ -132,13 +145,16 @@ async function handleMetingRequest (req, res) {
     }
   }
 
-  // 读取对应平台的 Cookie 并判断 VIP 过滤开关
+  // 读取对应平台的 Cookie、目标音质并判断 VIP 过滤开关
   const cookieEnvKey = `METING_COOKIE_${server.toUpperCase()}`
   const cookie = process.env[cookieEnvKey] || process.env.METING_COOKIE
   const filterVip = isVipFilterActive(req, !!cookie)
+  const br = parseBitrate(req.query.br)
 
-  // 4. 读取缓存或调用上游 API（cacheKey 带有 filterVip 状态，避免状态切换命中旧缓存）
-  const cacheKey = `${server}:${type}:${id}:${filterVip ? 'fv1' : 'fv0'}`
+  // 4. 读取缓存或调用上游 API（cacheKey 带有 filterVip 与 url 码率状态，避免不同配置命中旧缓存）
+  const cacheKey = type === 'url'
+    ? `${server}:${type}:${id}:br${br}:${filterVip ? 'fv1' : 'fv0'}`
+    : `${server}:${type}:${id}:${filterVip ? 'fv1' : 'fv0'}`
   let data = cache.get(cacheKey)
 
   if (data === undefined) {
@@ -185,22 +201,23 @@ async function handleMetingRequest (req, res) {
           data = targetSongs.map(formatNetEaseSong)
         } else {
           meting.format(true)
-          const method = METING_METHODS[type]
-          const rawResponse = await meting[method](id)
+          const rawResponse = type === 'url'
+            ? await meting.url(id, br)
+            : await meting[METING_METHODS[type]](id)
           data = JSON.parse(rawResponse)
         }
 
         // 酷狗音乐：当遇到 VIP 版权歌曲返回空直链时，自动提取 60s 试听切片兜底
         if (server === 'kugou' && type === 'url' && (!data || !data.url)) {
-          const fallback = await getKugouUrlWithFallback(id)
+          const fallback = await getKugouUrlWithFallback(id, br)
           if (fallback?.url) {
             data = fallback
           }
         }
       }
 
-      // url 缓存 10 分钟，其他元数据缓存 1 小时（url/pic 空直链不写入缓存）
-      const shouldCache = !((type === 'url' || type === 'pic') && !data?.url)
+      // url 缓存 10 分钟，其他元数据缓存 1 小时（空值与 url/pic 空直链不写入缓存）
+      const shouldCache = data != null && !((type === 'url' || type === 'pic') && !data?.url)
       if (shouldCache) {
         const ttl = type === 'url' ? 1000 * 60 * 10 : 1000 * 60 * 60
         cache.set(cacheKey, data, { ttl })
@@ -216,74 +233,119 @@ async function handleMetingRequest (req, res) {
     res.setHeader('x-cache', 'hit')
   }
 
-  // 6. 组装并返回结果
-  const baseUrl = getBaseUrl(req)
+  // 6. 组装并返回结果（防止 Express 4 异步路由出现未捕获异常导致请求超时）
+  try {
+    const baseUrl = getBaseUrl(req)
 
-  // 6.1 音频直链 302 重定向
-  if (type === 'url') {
-    let playUrl = data?.url
-    if (!playUrl) {
-      return res.status(404).send('Audio Not Found')
+    // 6.1 音频直链 302 重定向
+    if (type === 'url') {
+      let playUrl = data?.url
+      if (!playUrl) {
+        res.setHeader('Cache-Control', 'no-store')
+        return res.status(404).send('Audio Not Found')
+      }
+      // 平台链接纠偏与强制 HTTPS
+      if (server === 'netease') {
+        playUrl = playUrl
+          .replace('://m7c.', '://m7.')
+          .replace('://m8c.', '://m8.')
+          .replace('http://', 'https://')
+      } else if (server === 'tencent') {
+        playUrl = playUrl
+          .replace('http://', 'https://')
+          .replace('://ws.stream.qqmusic.qq.com', '://dl.stream.qqmusic.qq.com')
+      } else if (server === 'kugou' || server === 'kuwo') {
+        playUrl = playUrl.replace('http://', 'https://')
+      }
+      res.setHeader('Cache-Control', 'public, max-age=300, s-maxage=300')
+      return res.redirect(302, playUrl)
     }
-    // 平台链接纠偏与强制 HTTPS
-    if (server === 'netease') {
-      playUrl = playUrl
-        .replace('://m7c.', '://m7.')
-        .replace('://m8c.', '://m8.')
-        .replace('http://', 'https://')
-    } else if (server === 'tencent') {
-      playUrl = playUrl
-        .replace('http://', 'https://')
-        .replace('://ws.stream.qqmusic.qq.com', '://dl.stream.qqmusic.qq.com')
-    } else if (server === 'kugou' || server === 'kuwo') {
-      playUrl = playUrl.replace('http://', 'https://')
+
+    // 6.2 封面图片 302 重定向
+    if (type === 'pic') {
+      let picUrl = data?.url
+      if (!picUrl) {
+        res.setHeader('Cache-Control', 'no-store')
+        return res.status(404).send('Cover Picture Not Found')
+      }
+      if (server === 'kuwo') {
+        picUrl = picUrl.replace('http://img1.kwcdn.kuwo.cn', 'https://img4.kuwo.cn')
+                       .replace('http://', 'https://')
+      } else if (server === 'kugou') {
+        picUrl = picUrl.replace('http://', 'https://')
+      }
+      res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=3600')
+      return res.redirect(302, picUrl)
     }
-    return res.redirect(302, playUrl)
+
+    // 6.3 歌词返回（双语时间轴对齐合并）
+    if (type === 'lrc') {
+      res.setHeader('Content-Type', 'text/plain; charset=utf-8')
+      res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=3600')
+      return res.send(formatLyric(data?.lyric, data?.tlyric))
+    }
+
+    // 6.4 歌曲列表/单曲（格式化为 MetingJS / APlayer 标准数据规范，过滤无效/空对象）
+    const list = (Array.isArray(data) ? data : [data]).filter(
+      item => item && typeof item === 'object' && (item.id || item.url_id || item.name)
+    )
+    const brQuery = req.query.br !== undefined ? `&br=${br}` : ''
+    const formatted = list.map(item => {
+      const authUrl = secretToken ? `&auth=${signToken(server, 'url', item.url_id, secretToken)}` : ''
+      const authPic = secretToken ? `&auth=${signToken(server, 'pic', item.pic_id, secretToken)}` : ''
+      const authLrc = secretToken ? `&auth=${signToken(server, 'lrc', item.lyric_id, secretToken)}` : ''
+
+      return {
+        title: item.name || '',
+        author: Array.isArray(item.artist) ? item.artist.join(' / ') : (item.artist || 'Unknown'),
+        url: `${baseUrl}/api?server=${server}&type=url&id=${item.url_id}${brQuery}${authUrl}`,
+        pic: `${baseUrl}/api?server=${server}&type=pic&id=${item.pic_id}${authPic}`,
+        lrc: `${baseUrl}/api?server=${server}&type=lrc&id=${item.lyric_id}${authLrc}`
+      }
+    })
+
+    res.setHeader('Cache-Control', 'public, max-age=1800, s-maxage=3600')
+    return res.json(formatted)
+  } catch (err) {
+    if (!res.headersSent) {
+      return res.status(500).json({
+        error: '响应格式化失败',
+        message: err.message
+      })
+    }
   }
-
-  // 6.2 封面图片 302 重定向
-  if (type === 'pic') {
-    let picUrl = data?.url
-    if (!picUrl) {
-      return res.status(404).send('Cover Picture Not Found')
-    }
-    if (server === 'kuwo') {
-      picUrl = picUrl.replace('http://img1.kwcdn.kuwo.cn', 'https://img4.kuwo.cn')
-                     .replace('http://', 'https://')
-    } else if (server === 'kugou') {
-      picUrl = picUrl.replace('http://', 'https://')
-    }
-    return res.redirect(302, picUrl)
-  }
-
-  // 6.3 歌词返回（双语时间轴对齐合并）
-  if (type === 'lrc') {
-    res.setHeader('Content-Type', 'text/plain; charset=utf-8')
-    return res.send(formatLyric(data?.lyric, data?.tlyric))
-  }
-
-  // 6.4 歌曲列表/单曲（格式化为 MetingJS / APlayer 标准数据规范）
-  const list = Array.isArray(data) ? data : [data]
-  const formatted = list.map(item => {
-    const authUrl = secretToken ? `&auth=${signToken(server, 'url', item.url_id, secretToken)}` : ''
-    const authPic = secretToken ? `&auth=${signToken(server, 'pic', item.pic_id, secretToken)}` : ''
-    const authLrc = secretToken ? `&auth=${signToken(server, 'lrc', item.lyric_id, secretToken)}` : ''
-
-    return {
-      title: item.name || '',
-      author: Array.isArray(item.artist) ? item.artist.join(' / ') : (item.artist || 'Unknown'),
-      url: `${baseUrl}/api?server=${server}&type=url&id=${item.url_id}${authUrl}`,
-      pic: `${baseUrl}/api?server=${server}&type=pic&id=${item.pic_id}${authPic}`,
-      lrc: `${baseUrl}/api?server=${server}&type=lrc&id=${item.lyric_id}${authLrc}`
-    }
-  })
-
-  return res.json(formatted)
 }
 
 // 路由挂载
 app.get(['/health', '/api/health'], (req, res) => {
-  res.json({ status: 'ok', provider: 'Tencent Cloud EdgeOne Pages Cloud Functions', timestamp: Date.now() })
+  const corsEnv = (process.env.CORS_ORIGIN || process.env.ALLOW_ORIGIN || process.env.METING_CORS_ORIGIN || '*').trim()
+  const filterVipEnv = process.env.FILTER_VIP ?? process.env.METING_FILTER_VIP
+  const filterVipDefault = filterVipEnv === undefined
+    ? true
+    : !['false', '0', 'no', 'off'].includes(String(filterVipEnv).trim().toLowerCase())
+
+  res.setHeader('Cache-Control', 'no-store')
+  res.json({
+    status: 'ok',
+    provider: 'Tencent Cloud EdgeOne Pages Cloud Functions',
+    timestamp: Date.now(),
+    config: {
+      authEnabled: Boolean(process.env.METING_TOKEN),
+      corsRestricted: corsEnv !== '' && corsEnv !== '*',
+      filterVipDefault,
+      defaultBr: parseBitrate(undefined),
+      cookies: {
+        netease: Boolean(process.env.METING_COOKIE_NETEASE || process.env.METING_COOKIE),
+        tencent: Boolean(process.env.METING_COOKIE_TENCENT || process.env.METING_COOKIE),
+        kugou: Boolean(process.env.METING_COOKIE_KUGOU || process.env.METING_COOKIE),
+        kuwo: Boolean(process.env.METING_COOKIE_KUWO || process.env.METING_COOKIE)
+      }
+    },
+    cache: {
+      entries: cache.size,
+      max: cache.max
+    }
+  })
 })
 
 // 兼容所有路径（/api, /api/*, / 等），由 handleMetingRequest 处理

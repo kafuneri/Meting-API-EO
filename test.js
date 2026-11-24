@@ -1,5 +1,6 @@
 import app from './cloud-functions/[[default]].js'
 import { parseCorsPatterns, isOriginAllowed } from './cloud-functions/utils/cors.js'
+import { parseKuwoPseudoJson } from './cloud-functions/utils/providers.js'
 import http from 'node:http'
 
 const server = http.createServer(app)
@@ -28,10 +29,19 @@ async function runTests () {
     }
   }
 
-  // 1. 健康检查
+  // 1. 健康检查（含脱敏配置状态与 Cache-Control）
   await testCase('Health Check (/health)', '/health', async res => {
     const json = await res.json()
-    return res.status === 200 && json.status === 'ok'
+    const cc = res.headers.get('cache-control')
+    return (
+      res.status === 200 &&
+      json.status === 'ok' &&
+      cc === 'no-store' &&
+      typeof json.config?.authEnabled === 'boolean' &&
+      typeof json.config?.cookies?.netease === 'boolean' &&
+      typeof json.config?.defaultBr === 'number' &&
+      typeof json.cache?.entries === 'number'
+    )
   })
 
   // 2. 参数非法校验 (server 不合法)
@@ -206,6 +216,71 @@ async function runTests () {
       delete process.env.CORS_ORIGIN
     }
   }
+
+  // 19. Cache-Control 响应头校验
+  await testCase('Cache-Control Header on Playlist JSON', '/api?server=netease&type=playlist&id=71385702', async res => {
+    return res.status === 200 && res.headers.get('cache-control') === 'public, max-age=1800, s-maxage=3600'
+  })
+
+  await testCase('Cache-Control Header on Lyric', '/api?server=netease&type=lrc&id=509106775', async res => {
+    return res.status === 200 && res.headers.get('cache-control') === 'public, max-age=1800, s-maxage=3600'
+  })
+
+  await testCase('Cache-Control Header on Audio URL 302', '/api?server=netease&type=url&id=509106775', async res => {
+    return (res.status === 302 || res.status === 301) && res.headers.get('cache-control') === 'public, max-age=300, s-maxage=300'
+  })
+
+  await testCase('Cache-Control Header on Pic 302', '/api?server=netease&type=pic&id=509106775', async res => {
+    return (res.status === 302 || res.status === 301) && res.headers.get('cache-control') === 'public, max-age=1800, s-maxage=3600'
+  })
+
+  // 20. 音质参数 br 传递与直链解析测试
+  await testCase('Bitrate Param Propagation in Song List (&br=128)', '/api?server=netease&type=song&id=509106775&br=128', async res => {
+    if (res.status !== 200) return false
+    const json = await res.json()
+    return Array.isArray(json) && json.length > 0 && json[0].url.includes('&br=128')
+  })
+
+  await testCase('Bitrate Param Audio URL 302 (/api?server=netease&type=url&id=509106775&br=128)', '/api?server=netease&type=url&id=509106775&br=128', async res => {
+    const loc = res.headers.get('location')
+    return (res.status === 302 || res.status === 301) && loc && loc.startsWith('https://')
+  })
+
+  // 21. 酷我伪 JSON 安全解析器单元测试与实时搜索测试
+  console.log('--- Testing Kuwo Safe Pseudo-JSON Parser ---')
+  const kuwoParserCases = [
+    { input: "{'HIT':'10','abslist':[{'NAME':'卡农'}]}", check: r => r.HIT === '10' && r.abslist?.[0]?.NAME === '卡农' },
+    { input: "{'NAME':'Hello \"World\"','SUB':'It\\'s fine'}", check: r => r.NAME === 'Hello "World"' && r.SUB === "It's fine" },
+    { input: '{"HIT":"20","ok":true}', check: r => r.HIT === '20' && r.ok === true },
+    { input: "(() => process.env)()", check: r => typeof r === 'object' && Object.keys(r).length === 0 }
+  ]
+  let kuwoParserPass = true
+  for (const tc of kuwoParserCases) {
+    const parsed = parseKuwoPseudoJson(tc.input)
+    if (!tc.check(parsed)) {
+      console.error(`[FAIL] Kuwo Pseudo-JSON Parser failed for input: ${tc.input}, got:`, parsed)
+      kuwoParserPass = false
+    }
+  }
+  if (kuwoParserPass) {
+    console.log('[PASS] Kuwo Safe Pseudo-JSON Parser Unit Tests (4 test assertions passed)')
+    passCount++
+  } else {
+    failCount++
+  }
+
+  await testCase('Kuwo Live Search (/api?server=kuwo&type=search&id=卡农)', '/api?server=kuwo&type=search&id=%E5%8D%A1%E5%86%9C', async res => {
+    if (res.status !== 200) return false
+    const json = await res.json()
+    return Array.isArray(json) && json.length > 0 && Boolean(json[0].title)
+  })
+
+  // 22. 无效单曲 ID 空值防御测试（优雅返回空数组，不报未捕获异常）
+  await testCase('Invalid Song ID Graceful Empty Array (/api?server=netease&type=song&id=9999999999999)', '/api?server=netease&type=song&id=9999999999999', async res => {
+    if (res.status !== 200) return false
+    const json = await res.json()
+    return Array.isArray(json) && json.length === 0
+  })
 
   console.log(`\n=== Test Results: ${passCount} passed, ${failCount} failed ===\n`)
   server.close()
