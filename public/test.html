@@ -74,8 +74,10 @@
     }
     .test-meta {
       display: flex;
+      flex-wrap: wrap;
       align-items: center;
       justify-content: space-between;
+      gap: 0.5rem 0.75rem;
       margin-bottom: 0.75rem;
     }
     .test-title {
@@ -92,6 +94,9 @@
       background: #f1f5f9;
       color: #475569;
       font-family: monospace;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;
     }
     .tag-netease { background: #fee2e2; color: #dc2626; }
     .tag-tencent { background: #dcfce7; color: #16a34a; }
